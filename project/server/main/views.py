@@ -1,7 +1,13 @@
 # project/server/main/views.py
+import ast
+import json
+
+import flask
 import redis
 from flask import Blueprint, request
 from werkzeug.utils import redirect
+
+from project.server.main.utils import upload_images, request_job_status, request_uploaded_links
 
 main_blueprint = Blueprint('main', __name__,)
 redisClient = redis.StrictRedis(host='localhost',
@@ -91,3 +97,38 @@ def app_response_token():
 
     redisClient.hset("Hash", "1", str(tokens))
     return ""
+
+@main_blueprint.route('/v1/images/upload', methods=['POST'])
+def image_upload():
+    """
+
+    :rtype: object
+    """
+    credentials = ast.literal_eval(redisClient.hget("Hash", "1"))
+    jobId = upload_images(request.json["urls"],credentials)
+    return flask.Response(json.dumps({
+        'jobId': jobId
+    }), mimetype=u'application/json')
+
+@main_blueprint.route('/v1/images/upload/<jobId>', methods=['GET'])
+def job_status(jobId):
+    """
+
+    :rtype: object
+    """
+    status = request_job_status(jobId)
+    return flask.Response(json.dumps(
+        status
+    ), mimetype=u'application/json')
+
+@main_blueprint.route('/v1/images', methods=['GET', 'POST'])
+def image_links():
+    """
+
+    :rtype: object
+    """
+    credentials = ast.literal_eval(redisClient.hget("Hash", "1"))
+    return flask.Response(json.dumps(
+        request_uploaded_links(credentials)
+    ), mimetype=u'application/json')
+
